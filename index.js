@@ -1,54 +1,43 @@
-// input date format hh-DD-MM-YYYY
-require('moment-precise-range-plugin');
 const moment = require('moment');
 const EventEmitter = require('events');
-const [ dateStringInFuture ] = process.argv.slice(2);
-const DATE_FORMAT_PATTERN = 'YYYY-MM-DD HH:mm:ss';
-
-// 12-12-12-2023
-
-
-
-const getDateFromDateString = (dateString) => {
-  const [ hour, day, month, year ] = dateString.split('-');
-  
-  if (day>32){
-    throw new Error("Введите корректную дату")
-  };
-  if (month>13){
-    throw new Error("Введите корректный месяц")
-  }
-  return new Date(Date.UTC(year, month - 1, day, hour));
-};
-
-
-const showRemainingTime = (dateInFuture) => {
-  const dateNow = new Date();
-
-  if (dateNow >= dateInFuture) { 
-    emitter.emit('timerEnd');
-  } else {
-    const currentDateFormatted = moment(dateNow, DATE_FORMAT_PATTERN);
-    const futureDateFormatted = moment(dateInFuture, DATE_FORMAT_PATTERN);
-    const diff = moment.preciseDiff(currentDateFormatted, futureDateFormatted);
-
-    console.clear();
-    console.log(diff);
-  }
-};
-
-const showTimerDone = (timerId) => {
-  clearInterval(timerId);
-  console.log('Таймер истек');
-};
-
 const emitter = new EventEmitter();
-const dateInFuture = getDateFromDateString(dateStringInFuture);
-const timerId = setInterval(() => {
-  emitter.emit('timerTick', dateInFuture);
+
+const [inputDate] = process.argv.slice(2);
+
+const prepareDate = (value) => {
+    const date = value.split('/');
+
+    date.forEach(val => {
+        if (isNaN(val)) {
+            throw new Error("Некорректное значение")
+        }
+    })
+
+    const [hour, day, month, year] = date;
+
+    return new Date(Date.UTC(year, month - 1, day, hour));
+};
+
+const getDateDiff = (date) => {
+    const now = moment(new Date())
+    const future = moment(date)
+    if (now >= future) { // неявно приводим к числу (миллисекунды) и сравниваем
+        emitter.emit('stopTick');
+        return
+    }
+    const diff = moment.duration(future.diff(now))._data
+    console.log(`${diff.seconds} seconds ${diff.minutes} minutes ${diff.hours} hours ${diff.days} days ${diff.months} months ${diff.years} years`)
+}
+
+const futureDate = prepareDate(inputDate);
+const timer = setInterval(() => {
+    emitter.emit('nextTick', futureDate);
 }, 1000)
 
-emitter.on('timerTick', showRemainingTime);
-emitter.on('timerEnd', () => {
-  showTimerDone(timerId);
+emitter.on('nextTick', getDateDiff);
+emitter.on('stopTick', () => {
+    clearInterval(timer);
+    console.log('Таймер истек');
 });
+
+/* node index.js 12/12/12/2023 */
